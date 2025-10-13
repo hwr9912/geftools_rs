@@ -1,0 +1,52 @@
+{
+    // 使用 IntelliSense 了解相关属性。 
+    // 悬停以查看现有属性的描述。
+    // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug executable 'gem2gef'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "run",
+                    "--bin=gem2gef",
+                    "--" // ⚠️ 这一行是关键：分隔 cargo 与 程序
+                ]
+            },
+            "args": []
+        },
+        {
+            "name": "Debug executable 'gem2gef' with args",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "run",
+                    "--bin=gem2gef",
+                    "--"
+                ]
+            },
+            "args": [
+                "-i",
+                "Y00855ND.tissue.gem.gz",
+                "-o",
+                "out/test.bgef",
+                "--bins",
+                "1"
+            ]
+        },
+        {
+            "name": "Debug unit tests in executable 'gem2gef'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--bin=gem2gef"
+                ]
+            }
+        }
+    ]
+}
