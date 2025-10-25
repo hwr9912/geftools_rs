@@ -9,8 +9,8 @@ mod bgef_writer;
 mod gem_reader;
 mod log;
 
-use bgef_writer::GEFTOOL_RS_VERSION;
-use gem_reader::{map2mat, parse_header, Expression, GeneRec};
+use bgef_writer::{Expression, GeneRec, GEFTOOL_RS_VERSION};
+use gem_reader::{map2mat, parse_header};
 use log::log_msg;
 
 use crate::{bgef_writer::SpotGene, gem_reader::get_expression};
@@ -95,121 +95,122 @@ fn main() -> Result<()> {
     let (gene_bins, min_x, max_x, min_y, max_y, mut max_exp, mut max_exon) =
         get_expression(&args.input, hdr.header_line_index, hdr.has_exon)
             .expect("get_expression 输入有问题");
-    {
-        let gene_exp = f.create_group("geneExp")?;
-        let gene_exp_bin1 = gene_exp.create_group("bin1")?;
 
-        // 计算总条数（按记录条数，而非坐标数）
-        let total: usize = gene_bins.values().map(|coord_map| coord_map.len()).sum();
+    // 计算总条数（按记录条数，而非坐标数）
+    let total: usize = gene_bins.values().map(|coord_map| coord_map.len()).sum();
 
-        // 预分配
-        let mut expressions: Vec<Expression> = Vec::with_capacity(total);
-        let mut exons: Vec<u32> = if hdr.has_exon {
-            Vec::with_capacity(total)
-        } else {
-            Vec::new()
-        };
+    // 预分配
+    let mut expressions: Vec<Expression> = Vec::with_capacity(total);
+    let mut exons: Vec<u32> = if hdr.has_exon {
+        Vec::with_capacity(total)
+    } else {
+        Vec::new()
+    };
 
-        let mut genes_meta: Vec<GeneRec> = Vec::with_capacity(gene_bins.len());
+    let mut genes_meta: Vec<GeneRec> = Vec::with_capacity(gene_bins.len());
 
-        // 串接顺序：外层按基因（BTreeMap 已排序），内层按 (x,y) 排序
-        let mut offset_u32: u32 = 0;
-        // 后面还有用gene_bins，这里只能用引用
-        for (gene_key, coord_map) in &gene_bins {
-            // 1) 收集并排序该基因的所有 (x,y) 记录，保证稳定性
-            let mut recs: Vec<_> = coord_map.into_iter().collect(); // Vec<((x,y), (mid,exon))>
-            recs.sort_by_key(|&((x, y), _)| (x, y));
+    // 串接顺序：外层按基因（BTreeMap 已排序），内层按 (x,y) 排序
+    let mut offset_u32: u32 = 0;
+    // 后面还有用gene_bins，这里只能用引用
+    for (gene_key, coord_map) in &gene_bins {
+        // 1) 收集并排序该基因的所有 (x,y) 记录，保证稳定性
+        let mut recs: Vec<_> = coord_map.into_iter().collect(); // Vec<((x,y), (mid,exon))>
+        recs.sort_by_key(|&((x, y), _)| (x, y));
 
-            // 2) 记录起始 offset
-            let start = offset_u32;
+        // 2) 记录起始 offset
+        let start = offset_u32;
 
-            // 3) 逐条推入 expression / exon，并维护 max 值，为了赋值，必须预先解引用
-            for (&(x, y), &(mid, exon_cnt)) in recs {
-                expressions.push(Expression { x, y, count: mid });
-                if hdr.has_exon {
-                    exons.push(exon_cnt);
-                }
-                if mid > max_exp {
-                    max_exp = mid;
-                }
-                if hdr.has_exon && exon_cnt > max_exon {
-                    max_exon = exon_cnt;
-                }
-                offset_u32 = offset_u32.saturating_add(1);
+        // 3) 逐条推入 expression / exon，并维护 max 值，为了赋值，必须预先解引用
+        for (&(x, y), &(mid, exon_cnt)) in recs {
+            expressions.push(Expression { x, y, count: mid });
+            if hdr.has_exon {
+                // 按先gene后坐标位置顺序推入外显子计数
+                exons.push(exon_cnt);
             }
-
-            // 4) 构建 gene 行（安全 from_str；如需映射，替换 gene_name_here 即可）
-            // 这里先让 gene_id = gene_key，gene_name 同 gene_id；后续你有映射表时把 gene_name 换成符号
-            let gene_id_v = unsafe { VarLenUnicode::from_str_unchecked(gene_key.as_str()) };
-            let gene_name_v = gene_id_v.clone(); // 现阶段同值；有符号映射时改这里
-
-            let cnt = offset_u32 - start;
-            genes_meta.push(GeneRec {
-                gene_id: gene_id_v,
-                gene_name: gene_name_v,
-                offset: start,
-                count: cnt,
-            });
+            // 逐个比较得到所有binN的所有gene中表达最大值
+            if mid > max_exp {
+                max_exp = mid;
+            }
+            // 同上，这里换成了外显子表达最大值
+            if hdr.has_exon && exon_cnt > max_exon {
+                max_exon = exon_cnt;
+            }
+            offset_u32 = offset_u32.saturating_add(1);
         }
 
-        // 5) 写 /geneExp/binN/expression
-        let ds_expr = gene_exp_bin1
+        // 4) 构建 gene 行（安全 from_str；如需映射，替换 gene_name_here 即可）
+        // 这里先让 gene_id = gene_key，gene_name 同 gene_id；后续你有映射表时把 gene_name 换成符号
+        let gene_id_v = unsafe { VarLenUnicode::from_str_unchecked(gene_key.as_str()) };
+        let gene_name_v = gene_id_v.clone(); // 现阶段同值；有符号映射时改这里
+
+        let cnt = offset_u32 - start;
+        genes_meta.push(GeneRec {
+            gene_id: gene_id_v,
+            gene_name: gene_name_v,
+            offset: start,
+            count: cnt,
+        });
+    }
+
+    // 5) 写 /geneExp/binN/expression
+    let gene_exp = f.create_group("geneExp")?;
+    let gene_exp_bin1 = gene_exp.create_group("bin1")?;
+    let ds_expr = gene_exp_bin1
+        .new_dataset_builder()
+        .with_data(&expressions)
+        .create("expression")?;
+
+    // 写属性
+    ds_expr
+        .new_attr::<i32>()
+        .create("minX")?
+        .write_scalar(&min_x)?;
+    ds_expr
+        .new_attr::<i32>()
+        .create("minY")?
+        .write_scalar(&min_y)?;
+    ds_expr
+        .new_attr::<i32>()
+        .create("maxX")?
+        .write_scalar(&max_x)?;
+    ds_expr
+        .new_attr::<i32>()
+        .create("maxY")?
+        .write_scalar(&max_y)?;
+    ds_expr
+        .new_attr::<u32>()
+        .create("maxExp")?
+        .write_scalar(&max_exp)?;
+    ds_expr
+        .new_attr::<u32>()
+        .create("resolution")?
+        .write_scalar(&args.resolution)?;
+
+    // 6) 写 /geneExp/binN/exon（可选）
+    if hdr.has_exon {
+        debug_assert_eq!(exons.len(), expressions.len());
+        let ds_exon = gene_exp_bin1
             .new_dataset_builder()
-            .with_data(&expressions)
-            .create("expression")?;
-
-        // 写属性
-        ds_expr
-            .new_attr::<i32>()
-            .create("minX")?
-            .write_scalar(&min_x)?;
-        ds_expr
-            .new_attr::<i32>()
-            .create("minY")?
-            .write_scalar(&min_y)?;
-        ds_expr
-            .new_attr::<i32>()
-            .create("maxX")?
-            .write_scalar(&max_x)?;
-        ds_expr
-            .new_attr::<i32>()
-            .create("maxY")?
-            .write_scalar(&max_y)?;
-        ds_expr
+            .with_data(&exons)
+            .create("exon")?;
+        ds_exon
             .new_attr::<u32>()
-            .create("maxExp")?
-            .write_scalar(&max_exp)?;
-        ds_expr
-            .new_attr::<u32>()
-            .create("resolution")?
-            .write_scalar(&args.resolution)?;
+            .create("maxExon")?
+            .write_scalar(&max_exon)?;
+    }
 
-        // 6) 写 /geneExp/binN/exon（可选）
-        if hdr.has_exon {
-            debug_assert_eq!(exons.len(), expressions.len());
-            let ds_exon = gene_exp_bin1
-                .new_dataset_builder()
-                .with_data(&exons)
-                .create("exon")?;
-            ds_exon
-                .new_attr::<u32>()
-                .create("maxExon")?
-                .write_scalar(&max_exon)?;
-        }
+    // 7) 写 /geneExp/binN/gene（复合类型一把写）
+    let _ds_gene = gene_exp_bin1
+        .new_dataset_builder()
+        .with_data(&genes_meta)
+        .create("gene")?;
 
-        // 7) 写 /geneExp/binN/gene（复合类型一把写）
-        let _ds_gene = gene_exp_bin1
-            .new_dataset_builder()
-            .with_data(&genes_meta)
-            .create("gene")?;
-
-        log_msg(&format!(
+    log_msg(&format!(
         "/geneExp/bin1 info:\n  minX={}  maxX={}\n  minY={}  maxY={}\n  maxExp={} maxExon={} resolution={}",
         min_x, max_x,
         min_y, max_y,
         max_exp, max_exon, args.resolution,
         ));
-    }
 
     // ---------- wholeExp/bin1 & wholeExpExon/bin1 ----------
     {
@@ -221,6 +222,7 @@ fn main() -> Result<()> {
         let mut unique_coords = std::collections::HashSet::new();
         let mut spot_mid: HashMap<(i32, i32), SpotGene> = HashMap::new();
         let mut spot_exon: HashMap<(i32, i32), u32> = HashMap::new();
+        let mut max_mid_per_bin_n = u32::MIN;
 
         // 使用
         for (_gene, coord_map) in &gene_bins {
@@ -231,6 +233,10 @@ fn main() -> Result<()> {
                 let entry = spot_mid.entry((x, y)).or_insert(SpotGene::default());
                 entry.mid_count += mid;
                 entry.gene_count += 1;
+                // 逐个比较得到所有binN的所有gene中表达最大值
+                if entry.mid_count > max_mid_per_bin_n {
+                    max_mid_per_bin_n = entry.mid_count;
+                }
                 // wholeExpExon/bin1: exon 累加
                 *spot_exon.entry((x, y)).or_insert(0) = spot_exon
                     .get(&(x, y))
@@ -244,7 +250,6 @@ fn main() -> Result<()> {
         // 每个坐标下基因种类数
         let max_gene = spot_mid.values().map(|&x| x.gene_count).max().unwrap_or(0);
         let number = unique_coords.len() as u64;
-        let max_mid = max_exp; // 复用前面统计的 max_exp 作为 maxMID
 
         // 创建组
         let whole_exp = f.create_group("wholeExp")?;
@@ -279,7 +284,7 @@ fn main() -> Result<()> {
         whole_exp_bin1
             .new_attr::<u32>()
             .create("maxMID")?
-            .write_scalar(&max_mid)?;
+            .write_scalar(&max_mid_per_bin_n)?;
         whole_exp_bin1
             .new_attr::<u32>()
             .create("maxGene")?
@@ -294,7 +299,7 @@ fn main() -> Result<()> {
         number,
         min_x, len_x,
         min_y, len_y,
-        max_mid, max_gene, args.resolution,
+        max_mid_per_bin_n, max_gene, args.resolution,
         ));
 
         // ###### 写 wholeExpExon/bin1 属性到 HDF5 ######

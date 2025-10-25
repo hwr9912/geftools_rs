@@ -95,24 +95,6 @@ pub fn parse_header(path: &str) -> Result<Header> {
     })
 }
 
-#[repr(C)]
-#[derive(Clone, Copy, Debug, H5Type)]
-pub struct Expression {
-    pub x: i32,
-    pub y: i32,
-    pub count: u32, // MIDCount
-}
-
-// gene 复合类型（注意 repr(C) + VarLenUnicode）
-#[repr(C)]
-#[derive(H5Type, Clone, Debug)]
-pub struct GeneRec {
-    pub gene_id: VarLenUnicode, // 比如 "ENSMUSG..."；现阶段可与 gene_name 相同
-    pub gene_name: VarLenUnicode, // 比如 "Pdgfrb"；若无映射，先同 gene_id
-    pub offset: u32,
-    pub count: u32,
-}
-
 /// 遍历gem所有表达量行
 pub fn get_expression(
     path: &str,
