@@ -1,7 +1,5 @@
 use anyhow::*;
 use flate2::read::GzDecoder;
-use hdf5::types::VarLenUnicode;
-use hdf5::H5Type;
 use std::cmp::{max, min};
 use std::collections::{BTreeMap, HashMap};
 use std::fs::File;
@@ -146,18 +144,9 @@ pub fn get_expression(
             Some(s) if !s.is_empty() => s,
             _ => continue,
         };
-        let x: i32 = it
-            .next()
-            .ok_or_else(|| anyhow::anyhow!("missing x"))?
-            .parse()?;
-        let y: i32 = it
-            .next()
-            .ok_or_else(|| anyhow::anyhow!("missing y"))?
-            .parse()?;
-        let mid: u32 = it
-            .next()
-            .ok_or_else(|| anyhow::anyhow!("missing MIDCount"))?
-            .parse()?;
+        let x: i32 = it.next().ok_or_else(|| anyhow::anyhow!("missing x"))?.parse()?;
+        let y: i32 = it.next().ok_or_else(|| anyhow::anyhow!("missing y"))?.parse()?;
+        let mid: u32 = it.next().ok_or_else(|| anyhow::anyhow!("missing MIDCount"))?.parse()?;
         // 更新最小和最大坐标范围
         min_x = min(min_x, x);
         min_y = min(min_y, y);
@@ -172,10 +161,7 @@ pub fn get_expression(
         max_exp = max(max_exp, vals.0); // 更新合并后的最大值
         if has_exon {
             // 有exon的情况下新建
-            let exon: u32 = it
-                .next()
-                .ok_or_else(|| anyhow::anyhow!("missing Exon"))?
-                .parse()?;
+            let exon: u32 = it.next().ok_or_else(|| anyhow::anyhow!("missing Exon"))?.parse()?;
             vals.1 += exon; // 合并本行 exon 到该格
             max_exon = max(max_exon, vals.1); // 更新合并后的最大值
         }
