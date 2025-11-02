@@ -20,17 +20,19 @@ pub struct Expression {
 
 #[repr(C)]
 #[derive(H5Type, Clone, Debug)]
+#[allow(non_snake_case)]
 pub struct GeneRec {
-    pub gene_id: VarLenUnicode,
-    pub gene_name: VarLenUnicode,
+    pub geneID: VarLenUnicode,
+    pub geneName: VarLenUnicode,
     pub offset: u32,
     pub count: u32,
 }
 #[repr(C)]
+#[allow(non_snake_case)]
 #[derive(Clone, Copy, Debug, H5Type, Default)]
 pub struct SpotGene {
-    pub mid_count: u32,
-    pub gene_count: u16,
+    pub MIDcount: u32,
+    pub genecount: u16,
 }
 
 // BgefWriter 现在持有所有预处理过的数据，准备写入
@@ -142,8 +144,8 @@ impl BgefWriter {
         let len_x = (self.max_x - self.min_x + 1) as i32;
         let len_y = (self.max_y - self.min_y + 1) as i32;
 
-        let max_mid_per_bin_n = self.spot_mid_map.values().map(|&x| x.mid_count).max().unwrap_or(0);
-        let max_gene = self.spot_mid_map.values().map(|&x| x.gene_count).max().unwrap_or(0);
+        let max_mid_per_bin_n = self.spot_mid_map.values().map(|&x| x.MIDcount).max().unwrap_or(0);
+        let max_gene = self.spot_mid_map.values().map(|&x| x.genecount).max().unwrap_or(0);
         let number = self.spot_mid_map.len() as u64;
 
         let whole_exp = f.create_group("wholeExp")?;

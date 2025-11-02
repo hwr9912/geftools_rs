@@ -107,10 +107,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             // --- (原 Loop 2 的逻辑 - 合并于此) ---
             let entry = spot_mid_map.entry((x, y)).or_insert(SpotGene::default());
-            entry.mid_count += mid;
-            entry.gene_count += 1;
-            if entry.mid_count > max_mid_per_bin_n {
-                max_mid_per_bin_n = entry.mid_count;
+            entry.MIDcount += mid;
+            entry.genecount += 1;
+            if entry.MIDcount > max_mid_per_bin_n {
+                max_mid_per_bin_n = entry.MIDcount;
             }
             // exon 累加 (注意变量名是 exon_cnt)
             *spot_exon_map.entry((x, y)).or_insert(0) =
@@ -122,8 +122,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         let gene_name = gene_id.clone();
 
         genes_meta.push(GeneRec {
-            gene_id,
-            gene_name,
+            geneID: gene_id,
+            geneName: gene_name,
             offset: start,
             count: offset_u32 - start,
         });
@@ -141,7 +141,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let len_y = (max_y - min_y + 1) as i32;
 
     // 计算统计数据
-    let max_gene = spot_mid_map.values().map(|&x| x.gene_count).max().unwrap_or(0);
+    let max_gene = spot_mid_map.values().map(|&x| x.genecount).max().unwrap_or(0);
     let number = spot_mid_map.len() as u64;
     let max_exon_spot = spot_exon_map.values().max().copied().unwrap_or(0);
 
