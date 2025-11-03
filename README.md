@@ -1,6 +1,17 @@
 # 华大 cpp 库 geftools 的 rust 实现
 
-geftools 对于来源于 stereo-seq 某些 gem 数据，可能会出现一些溢出错误，因此本代码仓库使用 rust 重写了 geftools 的部分内容。开发过程中主要参考了：
+geftools 对于来源于 stereo-seq 某些 gem 数据，可能会出现一些溢出错误
+
+```bash
+(st) PS D:\Rust\geftools_rs> & E:/Anaconda_envs/envs/st/python.exe d:/Rust/geftools_rs/gem2gef_bgi_bug.py 
+geneID  x       y       MIDCount        ExonCount
+ 5
+create bgef file: out/Y00855N1_bgi.bgef
+can not find sn info from input file out/Y00855N1.tissue.gem.gz
+bin 1 matrix: min_x=0 len_x=-2147483648 min_y=0 len_y=-2147483648 matrix_len=0
+```
+
+本代码仓库使用 rust 重写了 geftools 的部分内容。开发过程中主要参考了：
 
 > 1. [geftools 原始代码仓库](https://github.com/STOmics/geftools)
 > 2. [stereopy 使用文档](https://stereopy.readthedocs.io/en/latest/index.html)
