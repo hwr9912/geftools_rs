@@ -1,1 +1,8 @@
+# 行宽120字符
 chain_width = 120
+# 同一 crate 的导入尽量合并成一行
+imports_granularity = "Crate"
+# 分组顺序：std | external | crate（保证 bgef_writer 这种在一组）
+group_imports = "StdExternalCrate"
+# 是否重排导入（通常建议开启）
+reorder_imports = true
