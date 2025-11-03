@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::error::Error;
 
-use hdf5::types::VarLenUnicode;
+use hdf5::types::{FixedAscii, VarLenUnicode};
 use hdf5::{File as H5File, H5Type}; // 导入 Location trait
 use ndarray::Array2;
 
@@ -19,14 +19,17 @@ pub struct Expression {
 }
 
 #[repr(C)]
-#[derive(H5Type, Clone, Debug)]
+#[derive(H5Type, Clone, Copy, Debug)]
 #[allow(non_snake_case)]
 pub struct GeneRec {
-    pub geneID: VarLenUnicode,
-    pub geneName: VarLenUnicode,
+    #[hdf5(name = "geneID")]
+    pub geneID: FixedAscii<64>,
+    #[hdf5(name = "geneName")]
+    pub geneName: FixedAscii<64>,
     pub offset: u32,
     pub count: u32,
 }
+
 #[repr(C)]
 #[allow(non_snake_case)]
 #[derive(Clone, Copy, Debug, H5Type, Default)]
@@ -92,10 +95,10 @@ impl BgefWriter {
 
     /// 将所有数据写入 HDF5 文件
     pub fn write_all(self, hdr: &Header) -> Result<(), Box<dyn Error>> {
-        // 1. 创建 HDF5 文件
+        // ------------ 1. 创建 HDF5 文件 ------------
         let f = H5File::create(&self.output)?;
 
-        // 2. 写入根属性 (使用安全且简洁的方式)
+        // ------------ 2. 写入根属性 (使用安全且简洁的方式) ------------
         // bin类型
         let vstr = hdr.bin_type.parse::<VarLenUnicode>()?;
         f.new_attr::<VarLenUnicode>().create("bin_type")?.write_scalar(&vstr)?;
@@ -111,15 +114,15 @@ impl BgefWriter {
         let vstr = hdr.stereo_seq_chip.parse::<VarLenUnicode>()?;
         f.new_attr::<VarLenUnicode>().create("sn")?.write_scalar(&vstr)?;
 
-        // 3. 写入 /geneExp/bin1
+        // ------------ 3. 写入 /geneExp/bin1 ------------
         let gene_exp = f.create_group("geneExp")?;
         let gene_exp_bin1 = gene_exp.create_group("bin1")?;
 
+        // 写入 /geneExp/bin1/expression
         let ds_expr = gene_exp_bin1
             .new_dataset_builder()
             .with_data(&self.expressions)
             .create("expression")?;
-
         // 写入 expression 属性
         ds_expr.new_attr::<i32>().create("minX")?.write_scalar(&self.min_x)?;
         ds_expr.new_attr::<i32>().create("minY")?.write_scalar(&self.min_y)?;
@@ -140,7 +143,7 @@ impl BgefWriter {
         let _ds_gene =
             gene_exp_bin1.new_dataset_builder().with_data(&self.genes_meta).create("gene")?;
 
-        // 4. 写入 /wholeExp/bin1
+        // ------------ 4. 写入 /wholeExp/bin1 ------------
         let len_x = (self.max_x - self.min_x + 1) as i32;
         let len_y = (self.max_y - self.min_y + 1) as i32;
 
@@ -196,4 +199,21 @@ impl BgefWriter {
 
         Ok(())
     }
+}
+
+pub fn str2fa64(s: &str) -> FixedAscii<64> {
+    // 1) 非 ASCII 替换 -> '?'
+    let mut ascii = String::with_capacity(64);
+    for ch in s.chars() {
+        let c = if ch.is_ascii() { ch } else { '?' };
+        if ascii.len() < 64 {
+            ascii.push(c)
+        } else {
+            break;
+        }
+    }
+    // 2) 调用公开构造器（会自动按 HDF5 规则填充/截断）
+    //    如果你用的是较新的 hdf5 crate，这里会返回 Result
+    //    我们把错误“不可达”（因为我们已保证 <=64 且 ASCII）
+    FixedAscii::<64>::from_ascii(&ascii).expect("FixedAscii<64>::from_ascii failed")
 }

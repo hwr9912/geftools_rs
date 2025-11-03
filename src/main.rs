@@ -2,18 +2,17 @@ use std::{collections::HashMap, error::Error};
 
 use anyhow::Result;
 use clap::Parser;
-use hdf5::types::VarLenUnicode;
 use hdf5::H5Type;
 
 mod bgef_writer;
 mod gem_reader;
 mod log;
 
-use bgef_writer::{BgefWriter, Expression, GeneRec};
-use gem_reader::parse_header;
-use log::log_msg;
-
-use crate::{bgef_writer::SpotGene, gem_reader::get_expression};
+use crate::{
+    bgef_writer::{str2fa64, BgefWriter, Expression, GeneRec, SpotGene},
+    gem_reader::{get_expression, parse_header},
+    log::log_msg,
+};
 
 #[derive(Parser)]
 struct Args {
@@ -118,8 +117,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
 
         // 4) 构建 gene 行
-        let gene_id = gene_key.parse::<VarLenUnicode>()?;
-        let gene_name = gene_id.clone();
+        let gene_id = str2fa64(gene_key); // 这里需要补充转化为geneid的代码
+        let gene_name = str2fa64(gene_key);
 
         genes_meta.push(GeneRec {
             geneID: gene_id,
