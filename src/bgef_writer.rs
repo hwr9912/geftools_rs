@@ -124,8 +124,8 @@ impl BgefWriter {
             .with_data(&self.expressions)
             .create("expression")?;
         // 写入 expression 属性
-        ds_expr.new_attr::<i32>().create("minX")?.write_scalar(&self.min_x)?;
-        ds_expr.new_attr::<i32>().create("minY")?.write_scalar(&self.min_y)?;
+        ds_expr.new_attr::<i32>().create("minX")?.write_scalar(&0)?;
+        ds_expr.new_attr::<i32>().create("minY")?.write_scalar(&0)?;
         ds_expr.new_attr::<i32>().create("maxX")?.write_scalar(&self.max_x)?;
         ds_expr.new_attr::<i32>().create("maxY")?.write_scalar(&self.max_y)?;
         ds_expr.new_attr::<u32>().create("maxExp")?.write_scalar(&self.max_exp)?;
@@ -144,21 +144,21 @@ impl BgefWriter {
             gene_exp_bin1.new_dataset_builder().with_data(&self.genes_meta).create("gene")?;
 
         // ------------ 4. 写入 /wholeExp/bin1 ------------
-        let len_x = (self.max_x - self.min_x + 1) as i32;
-        let len_y = (self.max_y - self.min_y + 1) as i32;
-
         let max_mid_per_bin_n = self.spot_mid_map.values().map(|&x| x.MIDcount).max().unwrap_or(0);
         let max_gene = self.spot_mid_map.values().map(|&x| x.genecount).max().unwrap_or(0);
         let number = self.spot_mid_map.len() as u64;
 
         let whole_exp = f.create_group("wholeExp")?;
-        let mat: Vec<SpotGene> = map2mat(&self.spot_mid_map, len_x as usize, len_y as usize)?;
+        // 将字典(坐标-表达量)转化为矩阵
+        let (mat, mat_x, mat_y) = map2mat(&self.spot_mid_map, self.min_x, self.min_y,self.max_x, self.max_y)?;
+        // 创建数据节点
         let whole_exp_bin1 = whole_exp
             .new_dataset::<SpotGene>()
-            .shape([len_x as usize, len_y as usize])
+            .shape([mat_x, mat_y])
             .create("bin1")?;
+        // 保存矩阵
         whole_exp_bin1
-            .write(&Array2::from_shape_vec([len_x as usize, len_y as usize], mat).unwrap())?;
+            .write(&Array2::from_shape_vec([mat_x, mat_y], mat).unwrap())?;
 
         // 写入 wholeExp 属性
         // 稠密矩阵中非零点的数量
@@ -170,11 +170,11 @@ impl BgefWriter {
         whole_exp_bin1
             .new_attr::<i32>()
             .create("lenX")?
-            .write_scalar(&(self.max_x - self.min_x + 1i32))?;
+            .write_scalar(&mat_x)?;
         whole_exp_bin1
             .new_attr::<i32>()
             .create("lenY")?
-            .write_scalar(&(self.max_y - self.min_y + 1i32))?;
+            .write_scalar(&mat_y)?;
         // spot中最大的 MID 计数
         whole_exp_bin1.new_attr::<u32>().create("maxMID")?.write_scalar(&max_mid_per_bin_n)?;
         // spot中最大的基因类型计数
@@ -183,14 +183,16 @@ impl BgefWriter {
 
         // 5. 写入 /wholeExpExon/bin1
         let whole_exon = f.create_group("wholeExpExon")?;
+         // 将字典(坐标-表达量)转化为矩阵
+        let (exon_mat, exon_mat_x, exon_mat_y) = map2mat(&self.spot_exon_map, self.min_x, self.min_y,self.max_x, self.max_y)?;
+        // 创建数据节点
         let whole_exp_bin1_exon = whole_exon
             .new_dataset::<u32>()
-            .shape([len_x as usize, len_y as usize])
+            .shape([exon_mat_x as usize, exon_mat_y as usize])
             .create("bin1")?;
-
-        let exon_mat: Vec<u32> = map2mat(&self.spot_exon_map, len_x as usize, len_y as usize)?;
+        // 保存矩阵
         whole_exp_bin1_exon
-            .write(&Array2::from_shape_vec([len_x as usize, len_y as usize], exon_mat).unwrap())?;
+            .write(&Array2::from_shape_vec([exon_mat_x, exon_mat_y], exon_mat).unwrap())?;
         // 当分箱大小为 N 时，斑点中的最大外显子表达计数
         let max_exon_spot = self.spot_exon_map.values().max().copied().unwrap_or(0);
         whole_exp_bin1.new_attr::<u32>().create("maxExon")?.write_scalar(&max_exon_spot)?;

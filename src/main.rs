@@ -145,7 +145,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let max_exon_spot = spot_exon_map.values().max().copied().unwrap_or(0);
 
     log_msg(&format!(
-        "/wholeExp/bin1 info:\n  number={}\n  minX={}  lenX={}\n  minY={}  lenY={}\n  maxMID={}  maxGene={} resolution={}",
+        "/wholeExp/bin1 info:\n  number={}\n  minX={}  minY={}\n  lenX={}  lenY={}\n  maxMID={}  maxGene={} resolution={}",
         number,
         min_x, len_x,
         min_y, len_y,

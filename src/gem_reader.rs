@@ -170,35 +170,58 @@ pub fn get_expression(
     Ok((gene_bins, min_x, max_x, min_y, max_y, max_exp, max_exon))
 }
 
-/// 把坐标形式的hashmap展开成二维稠密矩阵
+/// 将 HashMap 坐标数据截取在指定范围 (min_x, max_x) × (min_y, max_y) 内，
+/// 并转换为局部矩阵坐标（从 0 开始）。
 ///
-/// Params:
+/// # Params
 ///
-///     spot_map: HashMap<(i32, i32), T>, 坐标必须是(i32, i32);
-///     len_x, len_y: 稠密矩阵将为[len_x * len_y];
+/// - `spot_map`: `HashMap<(i32, i32), T>`  
+///   原始坐标与值的映射，键为 (x, y)，必须为 `i32` 类型；  
 ///
-/// Returns:
+/// - `min_x`, `min_y`: `i32`  
+///   截取矩形区域的左上角坐标；  
 ///
-///     Result<Vec<Vec<T>>>, 展开后的矩阵
-pub fn map2mat<T>(spot_map: &HashMap<(i32, i32), T>, len_x: usize, len_y: usize) -> Result<Vec<T>>
+/// - `max_x`, `max_y`: `i32`  
+///   截取矩形区域的右下角坐标；  
+///
+/// - `len_x`, `len_y`: `usize`  
+///   输出矩阵的宽度与高度（可由 `max_x - min_x + 1`、`max_y - min_y + 1` 计算得到）；  
+///
+/// # Returns
+///
+/// - `Result<Vec<Vec<T>>>`  
+///   返回截取并重置坐标后的稠密矩阵，
+///   其中矩阵尺寸为 `[len_y][len_x]`，空缺位置以 `T::default()` 填充。
+pub fn map2mat<T>(
+    spot_map: &HashMap<(i32, i32), T>,
+    min_x: i32,
+    min_y: i32,
+    max_x: i32,
+    max_y: i32,
+) -> Result<(Vec<T>, usize, usize)>
 where
     T: Default + Clone,
 {
-    // 初始化一个填满默认值的二维矩阵
-    let mut mat: Vec<Vec<T>> = vec![vec![T::default(); len_x]; len_y];
+    // 计算宽高（注意这里 +1 是为了包含边界）
+    let width = (max_x - min_x + 1) as usize;
+    let height = (max_y - min_y + 1) as usize;
 
-    // 填充矩阵
-    for (&(x, y), v) in spot_map.iter() {
-        if x >= 0 && y >= 0 {
-            let (xi, yi) = (x as usize, y as usize);
-            if xi < len_x && yi < len_y {
-                mat[yi][xi] = v.clone();
-            }
+    // 初始化默认值矩阵
+    let mut mat: Vec<Vec<T>> = vec![vec![T::default(); width]; height];
+
+    // 遍历所有点，筛选落在指定范围内的
+    for (&(x, y), value) in spot_map.iter() {
+        if x >= min_x && x <= max_x && y >= min_y && y <= max_y {
+            // 转换为矩阵坐标（从 0 开始）
+            let xi = (x - min_x) as usize;
+            let yi = (y - min_y) as usize;
+            mat[yi][xi] = value.clone();
         }
     }
 
-    // 输出为
-    let vector = mat.into_iter().flat_map(|v| v).collect();
+    // 将二维矩阵展开为一维向量
+    let vector = mat.into_iter().flat_map(|row| row).collect();
 
-    Ok(vector)
+    Ok((vector, width, height))
 }
+
