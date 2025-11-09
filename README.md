@@ -1,4 +1,4 @@
-# 华大 cpp 库 geftools 的 rust 实现
+# 华大 cpp 库 geftools 中 gem 转 bgef 的 rust 实现
 
 geftools 对于来源于 stereo-seq 某些 gem 数据，可能会出现一些溢出错误
 
@@ -18,15 +18,6 @@ bin 1 matrix: min_x=0 len_x=-2147483648 min_y=0 len_y=-2147483648 matrix_len=0
 > 3. [gefpy: geftools 的 python 封装](https://github.com/STOmics/gefpy)
 > 4. [SAW 8.0 用户手册](https://www.stomics.tech/service/saw_8_1/docs/gao-ji-she-zhi/expression-matrix-format.html)
 > 5. [官方 GEF 文件结构思维导图](https://www.processon.com/view/link/610cc49c7d9c087bbd1ab7ab#map)
-
-目前已完成的功能：
-
-- gem 转换为 bgef
-
-即将开发的功能：
-
-- 并行化
-- cgef 转换
 
 使用说明
 
